@@ -98,7 +98,7 @@ footer{text-align:center;opacity:.5;font-size:.8rem;padding-bottom:1.5rem}
 
 <div id="modal" class="hidden" onclick="if(event.target===this)closeM()"><div id="mbox"></div></div>
 
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <script>
 const $=s=>document.querySelector(s),sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const SU=['♠','♥','♦','♣'],RK=['','','2','3','4','5','6','7','8','9','10','J','Q','K','A'];
@@ -139,7 +139,7 @@ function hname(s){const c=Math.floor(s/P5);return c==8&&Math.floor(s/50625)%15==
 /* ---------- Affichage ---------- */
 const ch=c=>c?`<div class="card ${c.s==1||c.s==2?'red':''}"><b>${RK[c.r]}</b><i>${SU[c.s]}</i></div>`:'<div class="card back"></div>';
 const say=t=>{G.msg=t};
-let seatN=0,lastEnd=0,peer,conn,isHost=false,started=false,lobbyPl=[];
+let seatN=0,lastEnd=0,net,conn,isHost=false,started=false,lobbyPl=[];
 const show=id=>['auth','home','lobby','game'].forEach(x=>$('#'+x).classList.toggle('hidden',x!=id));
 function draw(v){
  const N=v.pl.length;
@@ -250,7 +250,31 @@ function profile(){
  <div class="stats"><div><b>${U.chips}</b>jetons</div><div><b>${U.hands}</b>mains jouées</div><div><b>${U.wins}</b>mains gagnées</div><div><b>${U.hands?Math.round(U.wins/U.hands*100):0} %</b>taux de victoire</div><div><b>${U.biggest}</b>plus gros pot</div><div><b>${U.bestName||'—'}</b>meilleure main</div><div><b>${U.rebuys}</b>recaves</div></div>
  <h3>Classement sur cet appareil</h3><table>${top.map((u,i)=>`<tr><td>${i+1}. ${u.name}</td><td>${u.chips} 🪙</td></tr>`).join('')}</table>`)}
 
-/* ---------- Tables en ligne (PeerJS / WebRTC) : l'hôte fait tourner la partie ---------- */
+/* ---------- Transport en ligne : relais MQTT par WebSocket (fonctionne derrière les box et la 4G) ---------- */
+/*NET-START*/
+const BROKERS=['wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt'],AL='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const rid=()=>Math.random().toString(36).slice(2,10);
+function netConnect(order,opts){return new Promise((ok,ko)=>{let k=0;const next=()=>{if(k>=order.length)return ko(new Error('broker'));const i=order[k++];let done=false;
+ const c=mqtt.connect(BROKERS[i],{...opts,clientId:'tv_'+rid(),connectTimeout:6000,reconnectPeriod:0,keepalive:30});
+ const fail=()=>{if(done)return;done=true;clearTimeout(t);try{c.end(true)}catch(e){}next()};
+ const t=setTimeout(fail,7000);c.once('error',fail);c.once('close',fail);
+ c.once('connect',()=>{if(done)return;done=true;clearTimeout(t);c.removeListener('error',fail);c.removeListener('close',fail);c.on('error',()=>{});c.options.reconnectPeriod=2000;ok({c,i})})};next()})}
+async function netHost(room,cb){
+ const{c,i}=await netConnect([0,1],{will:{topic:`tvert/${room}/x`,payload:'closed',qos:0}}),conns={};
+ const mk=cid=>conns[cid]||(conns[cid]={cid,send:d=>c.publish(`tvert/${room}/c/${cid}`,JSON.stringify(d),{qos:1})});
+ await new Promise((ok,ko)=>c.subscribe(`tvert/${room}/h`,{qos:1},e=>e?ko(e):ok()));
+ c.on('message',(t,m)=>{let d;try{d=JSON.parse(m.toString())}catch(e){return}if(!d||!d.cid)return;const cn=mk(d.cid);if(d.t=='bye'){cb.leave(cn);delete conns[d.cid]}else cb.msg(cn,d)});
+ c.on('close',()=>cb.status('down'));c.on('connect',()=>cb.status('up'));
+ return{code:i+room,close:()=>{try{c.publish(`tvert/${room}/x`,'closed');c.end()}catch(e){}}}}
+async function netJoin(code,cb){
+ const i=+code[0],room=code.slice(1);if(!(i in BROKERS)||!/^[A-Z2-9]{4}$/.test(room))throw new Error('code');const cid=rid();
+ const{c}=await netConnect([i],{will:{topic:`tvert/${room}/h`,payload:JSON.stringify({cid,t:'bye'}),qos:1}});
+ await new Promise((ok,ko)=>c.subscribe([`tvert/${room}/c/${cid}`,`tvert/${room}/x`],{qos:1},e=>e?ko(e):ok()));
+ c.on('message',(t,m)=>{if(t.endsWith('/x'))return cb.closed();let d;try{d=JSON.parse(m.toString())}catch(e){return}cb.msg(d)});
+ c.on('close',()=>cb.status('down'));c.on('connect',()=>cb.status('up'));
+ return{send:d=>c.publish(`tvert/${room}/h`,JSON.stringify({cid,...d}),{qos:1}),close:()=>{try{c.publish(`tvert/${room}/h`,JSON.stringify({cid,t:'bye'}));c.end()}catch(e){}}}}
+/*NET-END*/
+
 const BOTS=['Lucky Luc','Madame Rouge','Le Professeur','Jack Pot'];
 const me=()=>({name:U.name,chips:U.chips,human:true,hand:[]});
 function solo(){isHost=true;lobbyPl=[me()];startGame(true)}
@@ -258,38 +282,36 @@ const setSt=(t,c)=>{$('#st').textContent=t;$('#st').className=c||''};
 const rosterUI=n=>{$('#lt').textContent='Joueurs connectés ('+n.length+'/6)';$('#lp').innerHTML=n.map((x,i)=>'<li>'+(i?'🟢 ':'👑 ')+x+(i?'':' (hôte)')+(x==U.name?' — vous':'')+'</li>').join('')};
 const updGo=()=>{const ok=lobbyPl.length>=2||$('#bots').checked;$('#go').disabled=!ok;$('#wt').textContent=ok?'':"En attente d'au moins un ami… (ou cochez les bots pour jouer sans eux).";};
 function copyLink(){const l=$('#lk');l.select();try{navigator.clipboard.writeText(l.value)}catch(e){document.execCommand('copy')}$('#cp').textContent='Copié ✔';setTimeout(()=>$('#cp').textContent='Copier',1500)}
-function hostTable(){
- isHost=true;lobbyPl=[me()];const code=[...Array(5)].map(()=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.random()*32|0]).join('');
- show('lobby');$('#code').textContent=code;$('#lk').value=location.href.split('#')[0]+'#'+code;['lkr','bl','hs'].forEach(x=>$('#'+x).classList.remove('hidden'));
+async function hostTable(){
+ isHost=true;lobbyPl=[me()];const room=[...Array(4)].map(()=>AL[Math.random()*AL.length|0]).join('');
+ show('lobby');$('#code').textContent='…';$('#lk').value='';['lkr','bl','hs'].forEach(x=>$('#'+x).classList.remove('hidden'));
  setSt('Création de la table…');rosterUI([U.name]);updGo();
- const t=setTimeout(()=>setSt('Le serveur de connexion ne répond pas. Vérifiez votre réseau, puis quittez et recréez la table.','er'),12000);
- peer=new Peer('tvert-'+code);
- peer.on('open',()=>{clearTimeout(t);setSt('Table prête ✔ Envoyez le lien à vos amis : ils apparaîtront ci-dessous dès leur connexion. Gardez cette page ouverte.','ok')});
- peer.on('disconnected',()=>{setSt('Connexion au serveur perdue, reconnexion…','er');try{peer.reconnect()}catch(e){}});
- peer.on('error',e=>{if(e.type=='unavailable-id'){clearTimeout(t);peer.destroy();hostTable()}else if(e.type!='peer-unavailable')setSt('Erreur de connexion ('+e.type+'). Quittez la table et réessayez.','er')});
- peer.on('connection',c=>{c.on('data',d=>onData(c,d));c.on('close',()=>onLeave(c));c.on('error',()=>onLeave(c))})}
+ try{net=await netHost(room,{msg:onData,leave:onLeave,status:x=>setSt(x=='up'?'Table prête ✔':'Connexion au serveur perdue, reconnexion…',x=='up'?'ok':'er')});
+  $('#code').textContent=net.code;$('#lk').value=location.href.split('#')[0]+'#'+net.code;lobbyBcast();
+  setSt('Table prête ✔ Envoyez le lien à vos amis : ils apparaîtront ci-dessous dès leur connexion. Gardez cette page ouverte.'+(location.protocol=='file:'?' ⚠ Vous avez ouvert le jeu depuis un fichier : ce lien ne marchera pas pour vos amis. Hébergez le jeu sur GitHub Pages.':''),'ok')}
+ catch(e){setSt('Impossible de joindre le serveur de parties. Vérifiez votre connexion, puis quittez la table et réessayez.','er')}}
 function lobbyBcast(){const pl=lobbyPl.map(p=>p.name);rosterUI(pl);updGo();lobbyPl.forEach(p=>p.conn&&p.conn.send({t:'lobby',pl}))}
 function onData(c,d){
  if(d.t=='hello'){
   if(started)return c.send({t:'busy'});if(lobbyPl.length>=6)return c.send({t:'full'});
-  if(lobbyPl.some(p=>p.conn==c))return;
+  if(lobbyPl.some(p=>p.conn==c))return c.send({t:'lobby',pl:lobbyPl.map(p=>p.name)});
   let n=String(d.name).replace(/[^\w\-]/g,'').slice(0,16)||'Joueur';while(lobbyPl.some(p=>p.name==n))n=n.slice(0,14)+'_2';
   lobbyPl.push({name:n,chips:Math.max(0,Math.min(+d.chips||0,1e7))||START,human:true,conn:c,hand:[]});lobbyBcast()}
  else if(d.t=='act'){const p=lobbyPl.find(x=>x.conn==c);if(p)onAct(p,d.a)}}
 function onLeave(c){const p=lobbyPl.find(x=>x.conn==c);if(!p)return;
  if(started){p.gone=true;onAct(p,{t:'f'})}else{lobbyPl=lobbyPl.filter(x=>x!=p);lobbyBcast()}}
-function join(code){
+async function join(code){
  if(!code)return;code=code.toUpperCase();location.hash=code;isHost=false;show('lobby');$('#code').textContent=code;
  ['lkr','bl','hs'].forEach(x=>$('#'+x).classList.add('hidden'));$('#wt').textContent='';rosterUI([]);$('#lt').textContent='';
- setSt('Connexion au serveur…');let ok=false;
- const t=setTimeout(()=>{if(!ok)setSt("Impossible de joindre la table. Vérifiez le code, que l'hôte a bien gardé sa page ouverte, puis quittez et réessayez.",'er')},15000);
- peer=new Peer();
- peer.on('open',()=>{setSt('Recherche de la table '+code+'…');conn=peer.connect('tvert-'+code,{serialization:'json',reliable:true});
-  conn.on('open',()=>{ok=true;clearTimeout(t);conn.send({t:'hello',name:U.name,chips:U.chips});setSt("Connecté à la table ✔ En attente du lancement par l'hôte.",'ok')});
-  conn.on('data',d=>{if(d.pl&&d.me!==undefined)draw(d);else if(d.t=='lobby')rosterUI(d.pl);else if(d.t=='start')show('game');
-   else if(d.t=='busy'||d.t=='full')setSt(d.t=='busy'?'La partie a déjà commencé : attendez la prochaine.':'La table est pleine (6 joueurs).','er')});
-  conn.on('close',()=>{alert("Connexion perdue avec l'hôte.");location.hash='';location.reload()})});
- peer.on('error',e=>{clearTimeout(t);setSt(e.type=='peer-unavailable'?"Table introuvable. Vérifiez le code et que l'hôte a gardé sa page ouverte.":'Erreur de connexion ('+e.type+'). Quittez la table et réessayez.','er')})}
+ setSt('Connexion au serveur…');let got=false;
+ try{conn=await netJoin(code,{status:()=>{},closed:()=>{alert("L'hôte a fermé la table.");location.hash='';location.reload()},
+  msg:d=>{got=true;if(d.pl&&d.me!==undefined)draw(d);else if(d.t=='lobby'){rosterUI(d.pl);setSt("Connecté à la table ✔ En attente du lancement par l'hôte.",'ok')}else if(d.t=='start')show('game');
+   else if(d.t=='busy'||d.t=='full')setSt(d.t=='busy'?'La partie a déjà commencé : attendez la prochaine.':'La table est pleine (6 joueurs).','er')}})}
+ catch(e){return setSt(e.message=='code'?"Code de table invalide. Il comporte 5 caractères, par exemple 0K7QX.":'Impossible de joindre le serveur de parties. Vérifiez votre connexion, puis quittez et réessayez.','er')}
+ setSt('Recherche de la table '+code+'…');
+ for(let n=0;n<5&&!got;n++){conn.send({t:'hello',name:U.name,chips:U.chips});await sleep(2500)}
+ if(!got)setSt("Table introuvable. Vérifiez le code et que l'hôte a gardé sa page ouverte.",'er')}
+
 function startGame(bots){
  P=[...lobbyPl];if(bots){let i=0;while(P.length<5)P.push({name:BOTS[i++],chips:START,agg:.3+Math.random()*.5,hand:[]})}
  if(P.length<2)return alert('Il faut au moins 2 joueurs, ou cochez « Compléter avec des bots ».');
