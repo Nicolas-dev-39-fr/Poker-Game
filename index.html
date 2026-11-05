@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Le Tapis Vert – Poker Texas Hold'em gratuit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0}
+:root{--gold:#e3b04b;--ink:#f4efe1;--felt1:#17805a;--felt2:#0a4a35}
+body{font-family:system-ui,"Segoe UI",sans-serif;background:radial-gradient(ellipse at 50% -10%,#1d3a36,#0a1214 65%) fixed;color:var(--ink);min-height:100vh}
+h1,h2{font-family:Fraunces,Georgia,serif}
+.hidden{display:none!important}
+button{font:inherit;cursor:pointer;border:0;border-radius:10px;padding:.6rem 1.05rem;font-weight:700;background:linear-gradient(#f2cd6b,#c4952c);color:#2a1d00;transition:.15s}
+button:hover{filter:brightness(1.1)}button:focus-visible,input:focus-visible{outline:3px solid #fff;outline-offset:2px}
+button.sec{background:#243439;color:var(--ink)}button.red{background:linear-gradient(#e0584f,#a52a24);color:#fff}button.grn{background:linear-gradient(#3fb877,#1e7d4b);color:#fff}
+input[type=text],input[type=password]{width:100%;padding:.75rem;border-radius:10px;border:1px solid #fff3;background:#0b1517;color:var(--ink);font:inherit;margin-top:.35rem}
+#auth,#home,#lobby{min-height:100vh;display:grid;place-items:center;padding:1rem}
+.card-auth{width:min(420px,100%);background:#101c1ecc;border:1px solid #e3b04b55;border-radius:20px;padding:2rem;box-shadow:0 20px 60px #000a}
+.card-auth h1{font-size:2.4rem;line-height:1;margin-bottom:.4rem}.card-auth p{opacity:.75;margin-bottom:1.2rem}
+.card-auth label{display:block;margin-top:.8rem;font-size:.9rem}.row{display:flex;gap:.6rem;margin-top:1.2rem}.row button{flex:1}
+#err{color:#ff8a80;min-height:1.3em;margin-top:.7rem;font-size:.9rem}
+.suits{font-size:1.6rem;letter-spacing:.4rem;margin-bottom:.8rem}.suits span:nth-child(even){color:#e5484d}
+header{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.7rem 1rem;background:#0a1214cc;border-bottom:1px solid #e3b04b44}
+header h2{font-size:1.4rem;margin-right:auto}header .pill{background:#243439;border-radius:99px;padding:.35rem .8rem;font-weight:700}
+header button{padding:.45rem .8rem}
+.tw{max-width:1000px;margin:0 auto;padding:34px 60px 120px}
+.table{position:relative;aspect-ratio:1.75;border-radius:50%;background:radial-gradient(ellipse at 50% 40%,var(--felt1),var(--felt2) 75%);border:14px solid #4b2e1b;box-shadow:0 0 0 3px #e3b04b88,inset 0 0 60px #0008,0 25px 50px #000a}
+.mid{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center}
+#pot{font-weight:800;margin-bottom:.5rem;color:var(--gold);text-shadow:0 1px 3px #000}
+#board{display:flex;gap:6px;justify-content:center;--cw:clamp(30px,5.5vw,54px)}
+.card{width:var(--cw,40px);height:calc(var(--cw,40px)*1.4);background:#fbf8ee;color:#16120e;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:calc(var(--cw,40px)*.38);line-height:1;box-shadow:0 2px 6px #0009}
+.card i{font-style:normal;font-size:1.25em}.card.red{color:#c8202a}
+.card.back{background:repeating-linear-gradient(45deg,#7a1f2b 0 5px,#5c1620 5px 10px);border:2px solid #fbf8ee}
+.card.empty{background:#0002;box-shadow:none;border:2px dashed #fff3}
+.seat{position:absolute;transform:translate(-50%,-50%);width:116px;text-align:center;background:#0b1214dd;border:2px solid #fff2;border-radius:14px;padding:6px;font-size:.78rem;transition:.2s}
+.seat .cards{display:flex;gap:3px;justify-content:center;min-height:calc(var(--cw)*1.4);--cw:34px}
+.seat.me{width:150px}.seat.me .cards{--cw:clamp(44px,6.5vw,62px)}
+.seat.turn{border-color:var(--gold);box-shadow:0 0 20px var(--gold)}.seat.fold{opacity:.4}.seat.win{border-color:#4ade80;box-shadow:0 0 24px #4ade80}
+.nm{font-weight:700;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ch{color:var(--gold);font-weight:700}
+.lb{min-height:1.3em;font-style:italic;opacity:.9}.bet{background:var(--gold);color:#2a1d00;border-radius:99px;padding:0 7px;font-weight:800;font-style:normal}
+.dl{display:inline-block;background:#fff;color:#000;border-radius:50%;width:17px;height:17px;line-height:17px;font-size:.65rem;margin-left:5px}
+#msg{text-align:center;margin:1.4rem 0 .8rem;min-height:1.5em;font-size:1.05rem}
+#bar{display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;align-items:center}
+.rz{display:flex;align-items:center;gap:.5rem}.rz input{width:150px;accent-color:var(--gold)}
+footer{text-align:center;opacity:.5;font-size:.8rem;padding-bottom:1.5rem}
+#modal{position:fixed;inset:0;background:#000b;display:grid;place-items:center;padding:1rem;z-index:9}
+#mbox{width:min(640px,100%);max-height:88vh;overflow:auto;background:#101c1e;border:1px solid #e3b04b66;border-radius:18px;padding:1.5rem 1.6rem}
+#mbox h2{margin-bottom:.6rem}#mbox h3{margin:1rem 0 .3rem;color:var(--gold)}#mbox p,#mbox li{line-height:1.5;font-size:.95rem}#mbox ul,#mbox ol{padding-left:1.2rem}
+#mbox table{width:100%;border-collapse:collapse;font-size:.92rem}#mbox td{padding:.3rem .2rem;border-bottom:1px solid #fff1}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.6rem;margin:.8rem 0}.stats div{background:#0b1517;border-radius:12px;padding:.7rem}.stats b{display:block;font-size:1.3rem;color:var(--gold)}
+.row input{margin:0;flex:2}#lp{margin:.8rem 0;padding-left:1.2rem;line-height:1.6}
+@media(max-width:640px){.tw{padding:30px 46px 120px}.seat{width:92px;font-size:.68rem}.seat.me{width:130px}.seat .cards{--cw:26px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<section id="auth" class="hidden">
+ <div class="card-auth">
+  <div class="suits"><span>♠</span><span>♥</span><span>♣</span><span>♦</span></div>
+  <h1>Le Tapis Vert</h1>
+  <p>Poker Texas Hold'em gratuit. Créez un compte pour garder vos jetons et suivre votre progression.</p>
+  <label>Pseudo<input type="text" id="un" autocomplete="username" maxlength="16"></label>
+  <label>Mot de passe<input type="password" id="pw" autocomplete="current-password"></label>
+  <div id="err" role="alert"></div>
+  <div class="row"><button class="sec" onclick="auth('log')">Se connecter</button><button onclick="auth('reg')">Créer un compte</button></div>
+ </div>
+</section>
+
+<section id="home" class="hidden"><div class="card-auth"><h1>Salle de jeu</h1><p>Bonjour <b id="hn"></b>. Créez une table et envoyez le lien à vos amis, ou rejoignez-en une avec son code.</p>
+<button style="width:100%" onclick="hostTable()">Créer une table pour mes amis</button>
+<div class="row"><input type="text" id="jc" placeholder="Code de la table" maxlength="5"><button class="sec" onclick="join($('#jc').value.trim())">Rejoindre</button></div>
+<div class="row"><button class="sec" onclick="solo()">Jouer seul contre des bots</button><button class="sec" onclick="logout()">Déconnexion</button></div></div></section>
+<section id="lobby" class="hidden"><div class="card-auth"><h1>Table <span id="code"></span></h1><p>Envoyez ce lien à vos amis (6 joueurs maximum).</p>
+<input type="text" id="lk" readonly onclick="this.select()"><ul id="lp"></ul>
+<label id="bl"><input type="checkbox" id="bots" checked> Compléter avec des bots (jusqu'à 5 joueurs)</label>
+<div class="row" id="hs"><button onclick="startGame($('#bots').checked)">Lancer la partie</button></div><p id="wt"></p></div></section>
+<section id="game" class="hidden">
+ <header>
+  <h2>♠ Le Tapis Vert</h2>
+  <span class="pill" id="hl"></span><span class="pill">🪙 <span id="hc"></span></span>
+  <button class="sec" onclick="rules()">Règles</button><button class="sec" onclick="profile()">Profil</button><button class="sec" onclick="logout()">Déconnexion</button>
+ </header>
+ <div class="tw">
+  <div class="table"><div id="seats"></div><div class="mid"><div id="pot"></div><div id="board"></div></div></div>
+  <div id="msg" aria-live="polite"></div>
+  <div id="bar"></div>
+ </div>
+ <footer>Jeu gratuit · jetons virtuels, aucun argent réel · blinds 10 / 20</footer>
+</section>
+
+<div id="modal" class="hidden" onclick="if(event.target===this)closeM()"><div id="mbox"></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+const $=s=>document.querySelector(s),sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const SU=['♠','♥','♦','♣'],RK=['','','2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+const HN=['Carte haute','Paire','Double paire','Brelan','Suite','Couleur','Full','Carré','Quinte flush'];
+const SB=10,BB=20,START=1000,P5=759375,TITLES=['Débutant','Amateur','Habitué','Joueur confirmé','Pro','Légende'];
+const all=()=>{try{return JSON.parse(localStorage.getItem('pk_users')||'{}')}catch(e){return{}}},put=o=>localStorage.setItem('pk_users',JSON.stringify(o));
+let U,K,P,G;
+
+/* ---------- Comptes (stockés dans le navigateur) ---------- */
+async function hash(p,salt){
+ if(window.crypto&&crypto.subtle){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(salt+p));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+ let h=0;for(const c of salt+p)h=(h*31+c.charCodeAt(0))|0;return'f'+h}
+async function auth(mode){
+ const n=$('#un').value.trim(),pw=$('#pw').value,err=$('#err'),k=n.toLowerCase(),us=all();err.textContent='';
+ if(mode=='reg'){
+  if(!/^[\w\-]{3,16}$/.test(n))return err.textContent='Pseudo : 3 à 16 caractères (lettres, chiffres, _ ou -).';
+  if(pw.length<6)return err.textContent='Mot de passe : 6 caractères minimum.';
+  if(us[k])return err.textContent='Ce pseudo est déjà pris. Choisissez-en un autre.';
+  const salt=Math.random().toString(36).slice(2);
+  us[k]={name:n,salt,hash:await hash(pw,salt),chips:START,hands:0,wins:0,best:-1,bestName:'',biggest:0,rebuys:0,joined:Date.now()};put(us);
+ }else{const u=us[k];if(!u||u.hash!==await hash(pw,u.salt))return err.textContent='Pseudo ou mot de passe incorrect.'}
+ localStorage.setItem('pk_session',k);enter(k)}
+function logout(){localStorage.removeItem('pk_session');location.reload()}
+function save(){const us=all();us[K]=U;put(us)}
+const level=()=>Math.floor((U.hands+U.wins*4)/25)+1;
+function head(){$('#hl').textContent='Niv. '+level()+' · '+TITLES[Math.min(5,Math.floor(level()/3))];$('#hc').textContent=U.chips}
+
+/* ---------- Évaluation des mains ---------- */
+function ev5(c){
+ const r=c.map(x=>x.r).sort((a,b)=>b-a),fl=c.every(x=>x.s==c[0].s),n={};r.forEach(v=>n[v]=(n[v]||0)+1);
+ const g=Object.keys(n).map(Number).sort((a,b)=>n[b]-n[a]||b-a);
+ const st=g.length==5&&(r[0]-r[4]==4||(r[0]==14&&r[1]==5));let k=g;if(st&&r[0]==14&&r[1]==5)k=[5,4,3,2,1];
+ const cat=st&&fl?8:n[g[0]]==4?7:n[g[0]]==3&&n[g[1]]==2?6:fl?5:st?4:n[g[0]]==3?3:n[g[0]]==2&&n[g[1]]==2?2:n[g[0]]==2?1:0;
+ let s=cat;for(let i=0;i<5;i++)s=s*15+(k[i]||0);return s}
+function best(cs){let m=0;(function f(st,ch){if(ch.length==5){m=Math.max(m,ev5(ch));return}for(let i=st;i<cs.length;i++)f(i+1,[...ch,cs[i]])})(0,[]);return m}
+function hname(s){const c=Math.floor(s/P5);return c==8&&Math.floor(s/50625)%15==14?'Quinte flush royale':HN[c]}
+
+/* ---------- Affichage ---------- */
+const ch=c=>c?`<div class="card ${c.s==1||c.s==2?'red':''}"><b>${RK[c.r]}</b><i>${SU[c.s]}</i></div>`:'<div class="card back"></div>';
+const say=t=>{G.msg=t};
+let seatN=0,lastEnd=0,peer,conn,isHost=false,started=false,lobbyPl=[];
+const show=id=>['auth','home','lobby','game'].forEach(x=>$('#'+x).classList.toggle('hidden',x!=id));
+function draw(v){
+ const N=v.pl.length;
+ if(N!=seatN){seatN=N;$('#seats').innerHTML=v.pl.map((_,i)=>{const a=(90+((i-v.me+N)%N)*360/N)*Math.PI/180;return`<div class="seat${i==v.me?' me':''}" id="s${i}" style="left:${50+47*Math.cos(a)}%;top:${50+52*Math.sin(a)}%"></div>`}).join('')}
+ v.pl.forEach((p,i)=>{const e=$('#s'+i);
+  e.className='seat'+(i==v.me?' me':'')+(p.folded?' fold':'')+(v.cur===i?' turn':'')+(p.win?' win':'');
+  e.innerHTML=`<div class="cards">${p.hand.map(ch).join('')}</div><div class="nm">${p.name}${v.dealer===i?'<span class="dl">D</span>':''}</div><div class="ch">${p.chips} 🪙</div><div class="lb">${p.bet?'<span class="bet">'+p.bet+'</span> ':''}${p.label||''}</div>`});
+ $('#board').innerHTML=[0,1,2,3,4].map(i=>v.board[i]?ch(v.board[i]):'<div class="card empty"></div>').join('');
+ $('#pot').textContent='Pot : '+v.pot;$('#msg').textContent=v.msg||'';
+ const e=v.end;if(e&&e.id!=lastEnd){lastEnd=e.id;U.hands++;U.chips=v.pl[v.me].chips;if(e.won>0){U.wins++;U.biggest=Math.max(U.biggest,e.won)}if(e.rb)U.rebuys++;if(e.sc>U.best){U.best=e.sc;U.bestName=e.hn}save()}
+ head();$('#hc').textContent=v.pl[v.me].chips;
+ const bar=$('#bar'),k=JSON.stringify(v.ask);
+ if(!v.ask){bar.innerHTML='';bar.dataset.k=''}else if(bar.dataset.k!==k){bar.dataset.k=k;buildBar(v.ask)}}
+function buildBar(k){const bar=$('#bar');
+ bar.innerHTML=`<button class="red" id="bF">Se coucher</button><button class="grn" id="bC">${k.tc?'Suivre '+Math.min(k.tc,k.chips):'Check'}</button>`+(k.canR?`<span class="rz"><input type="range" id="rs" min="${k.min}" max="${k.max}" step="10" value="${k.min}" aria-label="Montant"><button id="bR"></button></span><button class="sec" id="bH">½ pot</button><button class="sec" id="bP">Pot</button>`:'')+(k.chips>k.tc?`<button class="sec" id="bA">Tapis ${k.chips}</button>`:'');
+ const go=a=>{bar.innerHTML='';bar.dataset.k='';sendAct(a)};
+ $('#bF').onclick=()=>go({t:'f'});$('#bC').onclick=()=>go({t:'c'});
+ if(k.chips>k.tc)$('#bA').onclick=()=>go({t:'r',to:k.max});
+ if(k.canR){const rs=$('#rs'),lab=()=>$('#bR').textContent=(k.curBet?'Relancer à ':'Miser ')+Math.min(+rs.value,k.max);lab();rs.oninput=lab;
+  $('#bR').onclick=()=>go({t:'r',to:Math.min(+rs.value,k.max)});
+  const set=v=>{rs.value=Math.max(k.min,Math.min(k.max,Math.round(v/10)*10));lab()};
+  $('#bH').onclick=()=>set(k.curBet+(k.pot+k.tc)/2);$('#bP').onclick=()=>set(k.curBet+k.pot+k.tc)}}
+/* L'hôte envoie à chaque joueur sa propre vue : les cartes des autres restent cachées */
+function bcast(){P.forEach((p,i)=>{if(!p.human||p.gone)return;
+ const v={me:i,id:G.id,dealer:G.dealer,board:G.board,pot:G.pot,cur:G.cur,reveal:G.reveal,msg:G.msg,end:G.end?G.end[i]:null,ask:G.cur==i?G.ask:null,
+  pl:P.map((q,j)=>({name:q.name,chips:q.chips,bet:q.bet,folded:q.folded,label:q.label,win:q.win,hand:q.hand.map(c=>j==i||(G.reveal&&!q.folded)?c:0)}))};
+ try{p.conn?p.conn.send(v):draw(v)}catch(e){}})}
+const render=bcast;
+
+/* ---------- Moteur de jeu ---------- */
+function newDeck(){const d=[];for(let s=0;s<4;s++)for(let r=2;r<=14;r++)d.push({r,s});for(let i=51;i>0;i--){const j=Math.random()*(i+1)|0;[d[i],d[j]]=[d[j],d[i]]}return d}
+function pay(p,a){a=Math.max(0,Math.min(a,p.chips));p.chips-=a;p.bet+=a;p.total+=a;G.pot+=a;if(!p.chips)p.allIn=true}
+function apply(p,a){
+ if(a.t=='f'){p.folded=true;p.label='Couché'}
+ else if(a.t=='c'){const tc=G.curBet-p.bet;pay(p,tc);p.label=p.allIn?'Tapis':tc?'Suit':'Check'}
+ else{const old=G.curBet;pay(p,Math.min(a.to,p.chips+p.bet)-p.bet);
+  if(p.bet>G.curBet){if(p.bet-old>=G.minRaise)G.minRaise=p.bet-old;G.curBet=p.bet;P.forEach(q=>{if(q!==p&&!q.folded&&!q.allIn)q.pend=true})}
+  p.label=p.allIn?'Tapis':(old?'Relance ':'Mise ')+p.bet}
+ p.pend=false}
+
+const mkAsk=p=>{const tc=G.curBet-p.bet,max=p.chips+p.bet,min=Math.min(G.curBet+G.minRaise,max);return{tc,max,min,canR:p.chips>tc&&min<max,chips:p.chips,curBet:G.curBet,pot:G.pot}};
+function sane(p,a){const k=G.ask;if(!k)return{t:'c'};if(a&&a.t=='r'){if(p.chips<=k.tc)return{t:'c'};return{t:'r',to:Math.min(Math.max(+a.to||0,k.min),k.max)}}return a&&a.t=='f'?{t:'f'}:{t:'c'}}
+function onAct(p,a){if(p.resolve&&G.cur>=0&&P[G.cur]===p){const r=p.resolve;p.resolve=null;r(sane(p,a))}}
+const sendAct=a=>isHost?onAct(P[0],a):conn.send({t:'act',a});
+const humanWait=p=>Promise.race([new Promise(r=>p.resolve=r),sleep(45000).then(()=>({t:G.ask&&G.ask.tc?'f':'c'}))]);
+
+function strength(p){
+ if(!G.board.length){const[a,b]=p.hand.map(c=>c.r).sort((x,y)=>y-x);return Math.min(1,(a+b)/28*.5+(a==b?.35+a/14*.15:0)+(p.hand[0].s==p.hand[1].s?.06:0)+(a-b<=2?.04:0))}
+ const s=best([...p.hand,...G.board]),c=Math.floor(s/P5);return[.2+Math.max(...p.hand.map(x=>x.r))/14*.08,.52,.72,.8,.86,.89,.93,.97,1][c]}
+async function botAct(p){
+ await sleep(600+Math.random()*700);
+ const tc=G.curBet-p.bet,s=strength(p)+(Math.random()-.5)*.2+(p.agg-.5)*.15;
+ const rz=f=>({t:'r',to:Math.min(G.curBet+Math.max(G.minRaise,Math.round(G.pot*f/10)*10),p.chips+p.bet)});
+ if(!tc)return s>.65||Math.random()<.06?rz(.4+s*.5):{t:'c'};
+ if(s>.82&&p.chips>tc&&Math.random()<.7)return rz(.5+Math.random()*.5);
+ return s>tc/(G.pot+tc)+.18||(s>.35&&tc<=BB*2)?{t:'c'}:{t:'f'}}
+
+async function betRound(first){
+ P.forEach(p=>p.pend=!p.folded&&!p.allIn);let i=first;
+ while(true){
+  const live=P.filter(p=>!p.folded);if(live.length<2)return;
+  const can=live.filter(p=>!p.allIn);if(!can.some(p=>p.pend)||(can.length==1&&can[0].bet>=G.curBet))return;
+  const p=P[i];i=(i+1)%P.length;if(p.folded||p.allIn||!p.pend)continue;
+  G.cur=P.indexOf(p);G.ask=p.human?mkAsk(p):null;say(p.name+(p.human?' doit jouer…':' réfléchit…'));render();
+  const a=p.gone?{t:p.bet<G.curBet?'f':'c'}:p.human?await humanWait(p):await botAct(p);apply(p,a);G.cur=-1;G.ask=null;render();await sleep(250)}}
+
+async function playHand(){
+ P=P.filter(p=>!p.gone);P.forEach(p=>{if(p.chips<(p.human?1:BB)){p.chips=START;p.rb=!!p.human}});
+ G.deck=newDeck();G.id++;G.end=null;G.ask=null;G.board=[];G.pot=0;G.reveal=false;G.cur=-1;G.curBet=0;G.minRaise=BB;
+ P.forEach(p=>Object.assign(p,{hand:[],bet:0,total:0,folded:false,allIn:false,label:'',win:false}));
+ const N=P.length;G.dealer=(G.dealer+1)%N;const sb=N==2?G.dealer:(G.dealer+1)%N,bb=(sb+1)%N;
+ pay(P[sb],SB);pay(P[bb],BB);G.curBet=BB;P[sb].label='PB '+P[sb].bet;P[bb].label='GB '+P[bb].bet;
+ for(let r=0;r<2;r++)P.forEach(p=>p.hand.push(G.deck.pop()));say('Nouvelle main : les cartes sont distribuées.');render();await sleep(700);
+ for(let st=0;st<4;st++){
+  if(st){P.forEach(p=>{p.bet=0;if(!p.folded&&!p.allIn)p.label=''});G.curBet=0;G.minRaise=BB;
+   for(let k=0;k<(st==1?3:1);k++)G.board.push(G.deck.pop());say(['','Flop','Turn','River'][st]);render();await sleep(700)}
+  if(P.filter(p=>!p.folded).length<2)break;
+  await betRound(st?(G.dealer+1)%N:(bb+1)%N)}
+ /* Showdown et pots annexes */
+ P.forEach(p=>p.bet=0);const live=P.filter(p=>!p.folded),won={};G.cur=-1;
+ if(live.length==1){live[0].chips+=G.pot;live[0].win=true;won[live[0].name]=G.pot;say(live[0].name+' remporte '+G.pot+' jetons (tous les autres se sont couchés).')}
+ else{
+  G.reveal=true;live.forEach(p=>p.sc=best([...p.hand,...G.board]));
+  const lv=[...new Set(live.map(p=>p.total))].sort((a,b)=>a-b);let prev=0;
+  lv.forEach((L,k)=>{const cap=k==lv.length-1?Infinity:L;let amt=0;P.forEach(p=>amt+=Math.max(0,Math.min(p.total,cap)-prev));
+   const el=live.filter(p=>p.total>=L),top=Math.max(...el.map(p=>p.sc)),w=el.filter(p=>p.sc==top),sh=Math.floor(amt/w.length);
+   w.forEach((p,j)=>{const g=sh+(j?0:amt-sh*w.length);p.chips+=g;p.win=true;won[p.name]=(won[p.name]||0)+g});prev=L});
+  say(Object.keys(won).map(n=>{const p=P.find(x=>x.name==n);return n+' gagne '+won[n]+' ('+hname(p.sc)+')'}).join(' · '))}
+ G.end=P.map(p=>({id:G.id,won:won[p.name]||0,sc:live.length>1&&!p.folded?p.sc:-1,hn:live.length>1&&!p.folded?hname(p.sc):'',rb:!!p.rb}));P.forEach(p=>p.rb=false);
+ render();await sleep(7000)}
+
+async function run(){while(true){await playHand();if(!P.some(p=>p.human&&!p.gone))break}}
+
+/* ---------- Fenêtres ---------- */
+const openM=h=>{$('#mbox').innerHTML=h+'<div class="row"><button onclick="closeM()">Fermer</button></div>';$('#modal').classList.remove('hidden')},closeM=()=>$('#modal').classList.add('hidden');
+function rules(){openM(`<h2>Règles du Texas Hold'em</h2>
+<h3>But du jeu</h3><p>Remporter le pot en ayant la meilleure combinaison de 5 cartes, ou en poussant tous vos adversaires à se coucher.</p>
+<h3>Déroulement d'une main</h3><ol><li>Le bouton (D) tourne à chaque main. Les deux joueurs à sa gauche posent la petite blind (10) et la grosse blind (20).</li>
+<li>Chaque joueur reçoit 2 cartes privées. Premier tour d'enchères.</li><li><b>Flop</b> : 3 cartes communes, puis enchères.</li><li><b>Turn</b> : 4ᵉ carte commune, puis enchères.</li><li><b>River</b> : 5ᵉ carte commune, dernières enchères.</li><li><b>Abattage</b> : les joueurs restants montrent leurs cartes. Votre meilleure main utilise 0, 1 ou 2 de vos cartes et les cartes communes.</li></ol>
+<h3>Vos actions</h3><ul><li><b>Se coucher</b> : abandonner la main.</li><li><b>Check</b> : passer, si personne n'a misé.</li><li><b>Suivre</b> : égaler la mise en cours.</li><li><b>Miser / Relancer</b> : la relance doit être au moins égale à la mise ou relance précédente.</li><li><b>Tapis</b> : miser tous vos jetons. Si les autres misent davantage, un pot annexe est créé : vous ne pouvez gagner que ce que vous avez couvert.</li></ul>
+<h3>Classement des mains (de la plus forte à la plus faible)</h3>
+<table><tr><td>1. Quinte flush royale</td><td>10-V-D-R-A de la même couleur</td></tr><tr><td>2. Quinte flush</td><td>5 cartes qui se suivent, même couleur</td></tr><tr><td>3. Carré</td><td>4 cartes de même valeur</td></tr><tr><td>4. Full</td><td>Un brelan + une paire</td></tr><tr><td>5. Couleur</td><td>5 cartes de même couleur</td></tr><tr><td>6. Suite</td><td>5 cartes qui se suivent (l'as vaut 1 ou 14)</td></tr><tr><td>7. Brelan</td><td>3 cartes de même valeur</td></tr><tr><td>8. Double paire</td><td>Deux paires</td></tr><tr><td>9. Paire</td><td>2 cartes de même valeur</td></tr><tr><td>10. Carte haute</td><td>Aucune combinaison</td></tr></table>
+<h3>Égalité</h3><p>Les kickers (cartes restantes) départagent les mains de même rang. Si l'égalité persiste, le pot est partagé.</p>
+<h3>Progression</h3><p>Vos jetons, mains jouées, victoires et meilleure main sont enregistrés sur votre compte. Si vous tombez à 0, une recave gratuite de ${START} jetons vous est offerte.</p>`)}
+function profile(){
+ const top=Object.values(all()).sort((a,b)=>b.chips-a.chips).slice(0,5);
+ openM(`<h2>Profil de ${U.name}</h2><p>Niveau ${level()} · ${TITLES[Math.min(5,Math.floor(level()/3))]} · inscrit le ${new Date(U.joined).toLocaleDateString('fr-FR')}</p>
+ <div class="stats"><div><b>${U.chips}</b>jetons</div><div><b>${U.hands}</b>mains jouées</div><div><b>${U.wins}</b>mains gagnées</div><div><b>${U.hands?Math.round(U.wins/U.hands*100):0} %</b>taux de victoire</div><div><b>${U.biggest}</b>plus gros pot</div><div><b>${U.bestName||'—'}</b>meilleure main</div><div><b>${U.rebuys}</b>recaves</div></div>
+ <h3>Classement sur cet appareil</h3><table>${top.map((u,i)=>`<tr><td>${i+1}. ${u.name}</td><td>${u.chips} 🪙</td></tr>`).join('')}</table>`)}
+
+/* ---------- Tables en ligne (PeerJS / WebRTC) : l'hôte fait tourner la partie ---------- */
+const BOTS=['Lucky Luc','Madame Rouge','Le Professeur','Jack Pot'];
+const me=()=>({name:U.name,chips:U.chips,human:true,hand:[]});
+function solo(){isHost=true;lobbyPl=[me()];startGame(true)}
+function hostTable(){
+ isHost=true;lobbyPl=[me()];const code=[...Array(5)].map(()=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.random()*32|0]).join('');
+ peer=new Peer('tvert-'+code);
+ peer.on('open',()=>{show('lobby');$('#code').textContent=code;$('#lk').value=location.href.split('#')[0]+'#'+code;$('#bl').classList.remove('hidden');$('#hs').classList.remove('hidden');$('#wt').textContent='';lobbyBcast()});
+ peer.on('error',e=>{if(e.type=='unavailable-id')hostTable();else{alert('Connexion impossible : '+e.type);location.reload()}});
+ peer.on('connection',c=>{c.on('data',d=>onData(c,d));c.on('close',()=>onLeave(c))})}
+function lobbyBcast(){const pl=lobbyPl.map(p=>p.name);$('#lp').innerHTML=pl.map(n=>'<li>'+n+'</li>').join('');lobbyPl.forEach(p=>p.conn&&p.conn.send({t:'lobby',pl}))}
+function onData(c,d){
+ if(d.t=='hello'){
+  if(started)return c.send({t:'busy'});if(lobbyPl.length>=6)return c.send({t:'full'});
+  let n=String(d.name).replace(/[^\w\-]/g,'').slice(0,16)||'Joueur';while(lobbyPl.some(p=>p.name==n))n=n.slice(0,14)+'_2';
+  lobbyPl.push({name:n,chips:Math.max(0,Math.min(+d.chips||0,1e7))||START,human:true,conn:c,hand:[]});lobbyBcast()}
+ else if(d.t=='act'){const p=lobbyPl.find(x=>x.conn==c);if(p)onAct(p,d.a)}}
+function onLeave(c){const p=lobbyPl.find(x=>x.conn==c);if(!p)return;
+ if(started){p.gone=true;onAct(p,{t:'f'})}else{lobbyPl=lobbyPl.filter(x=>x!=p);lobbyBcast()}}
+function join(code){
+ if(!code)return;code=code.toUpperCase();location.hash=code;isHost=false;show('lobby');$('#code').textContent=code;$('#lk').parentNode.querySelector('p').textContent='Connexion à la table…';
+ ['lk','bl','hs'].forEach(x=>$('#'+x).classList.add('hidden'));$('#wt').textContent="En attente du lancement par l'hôte…";
+ peer=new Peer();
+ peer.on('open',()=>{conn=peer.connect('tvert-'+code);
+  conn.on('open',()=>conn.send({t:'hello',name:U.name,chips:U.chips}));
+  conn.on('data',d=>{if(d.pl&&d.me!==undefined)draw(d);else if(d.t=='lobby')$('#lp').innerHTML=d.pl.map(n=>'<li>'+n+'</li>').join('');else if(d.t=='start')show('game');
+   else if(d.t=='busy'||d.t=='full'){alert(d.t=='busy'?'La partie a déjà commencé.':'La table est pleine.');location.hash='';location.reload()}});
+  conn.on('close',()=>{alert("Connexion perdue avec l'hôte.");location.reload()})});
+ peer.on('error',e=>{alert(e.type=='peer-unavailable'?'Table introuvable : vérifiez le code.':'Connexion impossible ('+e.type+')');location.hash='';location.reload()})}
+function startGame(bots){
+ P=[...lobbyPl];if(bots){let i=0;while(P.length<5)P.push({name:BOTS[i++],chips:START,agg:.3+Math.random()*.5,hand:[]})}
+ if(P.length<2)return alert('Il faut au moins 2 joueurs, ou cochez « Compléter avec des bots ».');
+ started=true;P.forEach(p=>p.conn&&p.conn.send({t:'start'}));show('game');G={dealer:-1,board:[],pot:0,cur:-1,id:0};run()}
+
+/* ---------- Démarrage ---------- */
+function enter(k){
+ K=k;U=all()[k];$('#hn').textContent=U.name;head();
+ if(!localStorage['pk_seen_'+k]){localStorage['pk_seen_'+k]=1;rules()}
+ if(location.hash.length>1)join(location.hash.slice(1));else show('home')}
+const s=localStorage.getItem('pk_session');
+if(s&&all()[s])enter(s);else show('auth');
+document.addEventListener('keydown',e=>{if(e.key=='Enter'&&!$('#auth').classList.contains('hidden'))auth('log');if(e.key=='Escape')closeM()});
+</script>
+</body>
+</html>
