@@ -51,6 +51,7 @@ footer{text-align:center;opacity:.5;font-size:.8rem;padding-bottom:1.5rem}
 #mbox table{width:100%;border-collapse:collapse;font-size:.92rem}#mbox td{padding:.3rem .2rem;border-bottom:1px solid #fff1}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.6rem;margin:.8rem 0}.stats div{background:#0b1517;border-radius:12px;padding:.7rem}.stats b{display:block;font-size:1.3rem;color:var(--gold)}
 .row input{margin:0;flex:2}#lp{margin:.8rem 0;padding-left:1.2rem;line-height:1.6}
+#st{min-height:2.6em;font-size:.92rem;line-height:1.4}#lt{margin-top:1rem;color:var(--gold)}#lp{list-style:none;padding:0}#lp li{background:#0b1517;border-radius:10px;padding:.55rem .8rem;margin:.35rem 0}button:disabled{opacity:.4;cursor:not-allowed}.ok{color:#4ade80}.er{color:#ff8a80}
 @media(max-width:640px){.tw{padding:30px 46px 120px}.seat{width:92px;font-size:.68rem}.seat.me{width:130px}.seat .cards{--cw:26px}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -73,10 +74,14 @@ footer{text-align:center;opacity:.5;font-size:.8rem;padding-bottom:1.5rem}
 <button style="width:100%" onclick="hostTable()">Créer une table pour mes amis</button>
 <div class="row"><input type="text" id="jc" placeholder="Code de la table" maxlength="5"><button class="sec" onclick="join($('#jc').value.trim())">Rejoindre</button></div>
 <div class="row"><button class="sec" onclick="solo()">Jouer seul contre des bots</button><button class="sec" onclick="logout()">Déconnexion</button></div></div></section>
-<section id="lobby" class="hidden"><div class="card-auth"><h1>Table <span id="code"></span></h1><p>Envoyez ce lien à vos amis (6 joueurs maximum).</p>
-<input type="text" id="lk" readonly onclick="this.select()"><ul id="lp"></ul>
-<label id="bl"><input type="checkbox" id="bots" checked> Compléter avec des bots (jusqu'à 5 joueurs)</label>
-<div class="row" id="hs"><button onclick="startGame($('#bots').checked)">Lancer la partie</button></div><p id="wt"></p></div></section>
+<section id="lobby" class="hidden"><div class="card-auth"><h1>Table <span id="code"></span></h1>
+<p id="st"></p>
+<div class="row" id="lkr" style="margin-top:0"><input type="text" id="lk" readonly onclick="this.select()" aria-label="Lien de la table"><button class="sec" id="cp" onclick="copyLink()">Copier</button></div>
+<h3 id="lt"></h3><ul id="lp"></ul>
+<label id="bl"><input type="checkbox" id="bots" onchange="updGo()"> Compléter avec des bots (jusqu'à 5 joueurs)</label>
+<p id="wt" style="margin:.6rem 0 0"></p>
+<div class="row" id="hs"><button id="go" onclick="startGame($('#bots').checked)" disabled>Lancer la partie</button></div>
+<div class="row"><button class="sec" onclick="location.hash='';location.reload()">Quitter la table</button></div></div></section>
 <section id="game" class="hidden">
  <header>
   <h2>♠ Le Tapis Vert</h2>
@@ -249,31 +254,42 @@ function profile(){
 const BOTS=['Lucky Luc','Madame Rouge','Le Professeur','Jack Pot'];
 const me=()=>({name:U.name,chips:U.chips,human:true,hand:[]});
 function solo(){isHost=true;lobbyPl=[me()];startGame(true)}
+const setSt=(t,c)=>{$('#st').textContent=t;$('#st').className=c||''};
+const rosterUI=n=>{$('#lt').textContent='Joueurs connectés ('+n.length+'/6)';$('#lp').innerHTML=n.map((x,i)=>'<li>'+(i?'🟢 ':'👑 ')+x+(i?'':' (hôte)')+(x==U.name?' — vous':'')+'</li>').join('')};
+const updGo=()=>{const ok=lobbyPl.length>=2||$('#bots').checked;$('#go').disabled=!ok;$('#wt').textContent=ok?'':"En attente d'au moins un ami… (ou cochez les bots pour jouer sans eux).";};
+function copyLink(){const l=$('#lk');l.select();try{navigator.clipboard.writeText(l.value)}catch(e){document.execCommand('copy')}$('#cp').textContent='Copié ✔';setTimeout(()=>$('#cp').textContent='Copier',1500)}
 function hostTable(){
  isHost=true;lobbyPl=[me()];const code=[...Array(5)].map(()=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.random()*32|0]).join('');
+ show('lobby');$('#code').textContent=code;$('#lk').value=location.href.split('#')[0]+'#'+code;['lkr','bl','hs'].forEach(x=>$('#'+x).classList.remove('hidden'));
+ setSt('Création de la table…');rosterUI([U.name]);updGo();
+ const t=setTimeout(()=>setSt('Le serveur de connexion ne répond pas. Vérifiez votre réseau, puis quittez et recréez la table.','er'),12000);
  peer=new Peer('tvert-'+code);
- peer.on('open',()=>{show('lobby');$('#code').textContent=code;$('#lk').value=location.href.split('#')[0]+'#'+code;$('#bl').classList.remove('hidden');$('#hs').classList.remove('hidden');$('#wt').textContent='';lobbyBcast()});
- peer.on('error',e=>{if(e.type=='unavailable-id')hostTable();else{alert('Connexion impossible : '+e.type);location.reload()}});
- peer.on('connection',c=>{c.on('data',d=>onData(c,d));c.on('close',()=>onLeave(c))})}
-function lobbyBcast(){const pl=lobbyPl.map(p=>p.name);$('#lp').innerHTML=pl.map(n=>'<li>'+n+'</li>').join('');lobbyPl.forEach(p=>p.conn&&p.conn.send({t:'lobby',pl}))}
+ peer.on('open',()=>{clearTimeout(t);setSt('Table prête ✔ Envoyez le lien à vos amis : ils apparaîtront ci-dessous dès leur connexion. Gardez cette page ouverte.','ok')});
+ peer.on('disconnected',()=>{setSt('Connexion au serveur perdue, reconnexion…','er');try{peer.reconnect()}catch(e){}});
+ peer.on('error',e=>{if(e.type=='unavailable-id'){clearTimeout(t);peer.destroy();hostTable()}else if(e.type!='peer-unavailable')setSt('Erreur de connexion ('+e.type+'). Quittez la table et réessayez.','er')});
+ peer.on('connection',c=>{c.on('data',d=>onData(c,d));c.on('close',()=>onLeave(c));c.on('error',()=>onLeave(c))})}
+function lobbyBcast(){const pl=lobbyPl.map(p=>p.name);rosterUI(pl);updGo();lobbyPl.forEach(p=>p.conn&&p.conn.send({t:'lobby',pl}))}
 function onData(c,d){
  if(d.t=='hello'){
   if(started)return c.send({t:'busy'});if(lobbyPl.length>=6)return c.send({t:'full'});
+  if(lobbyPl.some(p=>p.conn==c))return;
   let n=String(d.name).replace(/[^\w\-]/g,'').slice(0,16)||'Joueur';while(lobbyPl.some(p=>p.name==n))n=n.slice(0,14)+'_2';
   lobbyPl.push({name:n,chips:Math.max(0,Math.min(+d.chips||0,1e7))||START,human:true,conn:c,hand:[]});lobbyBcast()}
  else if(d.t=='act'){const p=lobbyPl.find(x=>x.conn==c);if(p)onAct(p,d.a)}}
 function onLeave(c){const p=lobbyPl.find(x=>x.conn==c);if(!p)return;
  if(started){p.gone=true;onAct(p,{t:'f'})}else{lobbyPl=lobbyPl.filter(x=>x!=p);lobbyBcast()}}
 function join(code){
- if(!code)return;code=code.toUpperCase();location.hash=code;isHost=false;show('lobby');$('#code').textContent=code;$('#lk').parentNode.querySelector('p').textContent='Connexion à la table…';
- ['lk','bl','hs'].forEach(x=>$('#'+x).classList.add('hidden'));$('#wt').textContent="En attente du lancement par l'hôte…";
+ if(!code)return;code=code.toUpperCase();location.hash=code;isHost=false;show('lobby');$('#code').textContent=code;
+ ['lkr','bl','hs'].forEach(x=>$('#'+x).classList.add('hidden'));$('#wt').textContent='';rosterUI([]);$('#lt').textContent='';
+ setSt('Connexion au serveur…');let ok=false;
+ const t=setTimeout(()=>{if(!ok)setSt("Impossible de joindre la table. Vérifiez le code, que l'hôte a bien gardé sa page ouverte, puis quittez et réessayez.",'er')},15000);
  peer=new Peer();
- peer.on('open',()=>{conn=peer.connect('tvert-'+code);
-  conn.on('open',()=>conn.send({t:'hello',name:U.name,chips:U.chips}));
-  conn.on('data',d=>{if(d.pl&&d.me!==undefined)draw(d);else if(d.t=='lobby')$('#lp').innerHTML=d.pl.map(n=>'<li>'+n+'</li>').join('');else if(d.t=='start')show('game');
-   else if(d.t=='busy'||d.t=='full'){alert(d.t=='busy'?'La partie a déjà commencé.':'La table est pleine.');location.hash='';location.reload()}});
-  conn.on('close',()=>{alert("Connexion perdue avec l'hôte.");location.reload()})});
- peer.on('error',e=>{alert(e.type=='peer-unavailable'?'Table introuvable : vérifiez le code.':'Connexion impossible ('+e.type+')');location.hash='';location.reload()})}
+ peer.on('open',()=>{setSt('Recherche de la table '+code+'…');conn=peer.connect('tvert-'+code,{serialization:'json',reliable:true});
+  conn.on('open',()=>{ok=true;clearTimeout(t);conn.send({t:'hello',name:U.name,chips:U.chips});setSt("Connecté à la table ✔ En attente du lancement par l'hôte.",'ok')});
+  conn.on('data',d=>{if(d.pl&&d.me!==undefined)draw(d);else if(d.t=='lobby')rosterUI(d.pl);else if(d.t=='start')show('game');
+   else if(d.t=='busy'||d.t=='full')setSt(d.t=='busy'?'La partie a déjà commencé : attendez la prochaine.':'La table est pleine (6 joueurs).','er')});
+  conn.on('close',()=>{alert("Connexion perdue avec l'hôte.");location.hash='';location.reload()})});
+ peer.on('error',e=>{clearTimeout(t);setSt(e.type=='peer-unavailable'?"Table introuvable. Vérifiez le code et que l'hôte a gardé sa page ouverte.":'Erreur de connexion ('+e.type+'). Quittez la table et réessayez.','er')})}
 function startGame(bots){
  P=[...lobbyPl];if(bots){let i=0;while(P.length<5)P.push({name:BOTS[i++],chips:START,agg:.3+Math.random()*.5,hand:[]})}
  if(P.length<2)return alert('Il faut au moins 2 joueurs, ou cochez « Compléter avec des bots ».');
